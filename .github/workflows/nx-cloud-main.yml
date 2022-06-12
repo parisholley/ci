@@ -75,24 +75,8 @@ jobs:
         with:
           main-branch-name: ${{ inputs.main-branch-name }}
 
-      - name: Detect package manager
-        id: package_manager
-        run: |
-          echo "::set-output name=name::$([[ -f ./yarn.lock ]] && echo "yarn" || ([[ -f ./pnpm-lock.yaml ]] && echo "pnpm") || echo "npm")"
-
       # Set node/npm/yarn versions using volta, with optional overrides provided by the consumer
       - uses: volta-cli/action@fdf4cf319494429a105efaa71d0e5ec67f338c6e
-        with:
-          node-version: "${{ inputs.node-version }}"
-          npm-version: "${{ inputs.npm-version }}"
-          yarn-version: "${{ inputs.yarn-version }}"
-
-      # Install pnpm with exact version provided by consumer or fallback to latest
-      - name: Install PNPM
-        if: steps.package_manager.outputs.name == 'pnpm'
-        uses: pnpm/action-setup@v2.2.1
-        with:
-          version: ${{ inputs.pnpm-version || 'latest' }}
 
       - name: Print node/npm/yarn versions
         id: versions
@@ -108,38 +92,6 @@ jobs:
 
           echo "::set-output name=node_version::${node_ver:1}"
 
-      - name: Use the node_modules cache if available [npm]
-        if: steps.package_manager.outputs.name == 'npm'
-        uses: actions/cache@v2
-        with:
-          path: ~/.npm
-          key: ${{ runner.os }}-node-${{ steps.versions.outputs.node_version }}-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-${{ steps.versions.outputs.node_version }}-
-
-      - name: Use the node_modules cache if available [pnpm]
-        if: steps.package_manager.outputs.name == 'pnpm'
-        uses: actions/cache@v2
-        with:
-          path: ~/.pnpm-store
-          key: ${{ runner.os }}-node-${{ steps.versions.outputs.node_version }}-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-node-${{ steps.versions.outputs.node_version }}-
-
-      - name: Get yarn cache directory path
-        if: steps.package_manager.outputs.name == 'yarn'
-        id: yarn-cache-dir-path
-        run: echo "::set-output name=dir::$(yarn cache dir)"
-
-      - name: Use the node_modules cache if available [yarn]
-        if: steps.package_manager.outputs.name == 'yarn'
-        uses: actions/cache@v2
-        with:
-          path: ${{ steps.yarn-cache-dir-path.outputs.dir }}
-          key: ${{ runner.os }}-node-${{ steps.versions.outputs.node_version }}-yarn-${{ hashFiles('**/yarn.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-node-${{ steps.versions.outputs.node_version }}-yarn-
-
       - name: Run any configured install-commands
         if: ${{ inputs.install-commands != '' }}
         run: |
@@ -147,16 +99,8 @@ jobs:
       - name: Install dependencies
         if: ${{ inputs.install-commands == '' }}
         run: |
-          if [ "${{ steps.package_manager.outputs.name == 'yarn' }}" == "true" ]; then
-            echo "Running yarn install --frozen-lockfile"
-            yarn install --frozen-lockfile
-          elif [ "${{ steps.package_manager.outputs.name == 'pnpm' }}" == "true" ]; then
-            echo "Running pnpm install --frozen-lockfile"
-            pnpm install --frozen-lockfile
-          else
-            echo "Running npm ci"
-            npm ci
-          fi
+          echo "Running yarn"
+          yarn
 
       # An unfortunate side-effect of the way reusable workflows work is that by the time they are pulled into the "caller"
       # repo, they are effectively completely embedded in that context. This means that we cannot reference any files which
